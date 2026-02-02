@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, Loader2, Fingerprint } from "lucide-react"
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { getValidatedRedirectUrl, buildAuthRedirectUrl } from "@/lib/redirect"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +24,7 @@ import {
 
 export default function LoginPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [isLoading, setIsLoading] = useState<boolean>(false)
     const [showPassword, setShowPassword] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
@@ -32,13 +34,20 @@ export default function LoginPage() {
     const [heroImage] = useState<string>("/auth-hero-desktop.png")
 
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
             if (user) {
-                router.push("/")
+                const redirectUrl = getValidatedRedirectUrl(searchParams)
+                if (redirectUrl) {
+                    const idToken = await user.getIdToken()
+                    const finalUrl = await buildAuthRedirectUrl(redirectUrl, idToken)
+                    window.location.href = finalUrl
+                } else {
+                    router.push("/")
+                }
             }
         })
         return () => unsubscribe()
-    }, [router])
+    }, [router, searchParams])
 
     async function onSubmit(event: React.SyntheticEvent) {
         event.preventDefault()
@@ -47,7 +56,7 @@ export default function LoginPage() {
 
         try {
             await signInWithEmailAndPassword(auth, email, password)
-            router.push("/")
+            // Auth state listener will handle redirect
         } catch (e: any) {
             console.error(e)
             // Handle account not found or invalid credentials
@@ -70,7 +79,7 @@ export default function LoginPage() {
         try {
             const provider = new GoogleAuthProvider()
             await signInWithPopup(auth, provider)
-            router.push("/")
+            // Auth state listener will handle redirect
         } catch (e: any) {
             console.error(e)
             setError(e.message || "Failed to sign in with Google.")
@@ -78,6 +87,10 @@ export default function LoginPage() {
             setIsLoading(false)
         }
     }
+
+    const redirectUrl = getValidatedRedirectUrl(searchParams)
+    const forgotPasswordUrl = redirectUrl ? `/forgot-password?redirect=${encodeURIComponent(redirectUrl)}` : "/forgot-password"
+    const registerUrl = redirectUrl ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : "/register"
 
     return (
         <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
@@ -153,7 +166,7 @@ export default function LoginPage() {
                                         <div className="flex items-center justify-between">
                                             <Label htmlFor="password">Password</Label>
                                             <Link
-                                                href="/forgot-password"
+                                                href={forgotPasswordUrl}
                                                 className="text-sm font-medium text-primary hover:underline"
                                             >
                                                 Forgot password?
@@ -222,7 +235,7 @@ export default function LoginPage() {
                             <p>
                                 Don&apos;t have an account?{" "}
                                 <Link
-                                    href="/register"
+                                    href={registerUrl}
                                     className="underline underline-offset-4 hover:text-primary"
                                 >
                                     Sign up

@@ -3,10 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Loader2, ArrowLeft, Mail } from "lucide-react"
 import { sendPasswordResetEmail } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { getValidatedRedirectUrl } from "@/lib/redirect"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +16,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 
 export default function ForgotPasswordPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [isLoading, setIsLoading] = useState<boolean>(false)
     const [email, setEmail] = useState("")
     const [error, setError] = useState<string | null>(null)
@@ -35,6 +37,9 @@ export default function ForgotPasswordPage() {
             setIsLoading(false)
         }
     }
+
+    const redirectUrl = getValidatedRedirectUrl(searchParams)
+    const loginUrl = redirectUrl ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : "/login"
 
     return (
         <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
@@ -128,7 +133,7 @@ export default function ForgotPasswordPage() {
                             </CardContent>
                             <CardFooter className="flex flex-col space-y-4 p-0 mt-6 text-center text-sm text-muted-foreground">
                                 <Link
-                                    href="/login"
+                                    href={loginUrl}
                                     className="flex items-center justify-center hover:text-primary transition-colors"
                                 >
                                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -141,7 +146,7 @@ export default function ForgotPasswordPage() {
                             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                                 <Mail className="h-6 w-6 text-primary" />
                             </div>
-                            <Button variant="outline" className="w-full" onClick={() => router.push("/login")}>
+                            <Button variant="outline" className="w-full" onClick={() => router.push(loginUrl)}>
                                 Return to login
                             </Button>
                             <p className="text-xs text-center text-muted-foreground">

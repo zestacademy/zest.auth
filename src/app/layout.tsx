@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Zest Academy | Authentication",
-  description: "Secure access to Zest Academy platforms",
+  title: "Zest Auth | Secure Authentication for Zest Academy",
+  description: "Centralized authentication service for Zest Academy. Sign in once, access everything. Enterprise-grade security for modern learners.",
 };
 
 export default function RootLayout({

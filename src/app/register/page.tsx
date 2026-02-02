@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, Loader2, Fingerprint } from "lucide-react"
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile, sendEmailVerification } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { getValidatedRedirectUrl, buildAuthRedirectUrl } from "@/lib/redirect"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +24,7 @@ import {
 
 export default function RegisterPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [isLoading, setIsLoading] = useState<boolean>(false)
     const [showPassword, setShowPassword] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
@@ -34,19 +36,20 @@ export default function RegisterPage() {
     const [heroImage] = useState<string>("/auth-hero-desktop-hq.jpg")
 
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
             if (user && !showVerifyDialog) {
-                // Only redirect if we are NOT showing the verification dialog.
-                // This prevents premature redirect before the user sees the message if auto-login happens on signup.
-                // However, createUserWithEmailAndPassword signs in automatically.
-                // We need to handle the flow carefully.
-                // If the dialog is open, we wait for user interaction.
-                // If user visits the page appearing logged in, we redirect.
-                router.push("/")
+                const redirectUrl = getValidatedRedirectUrl(searchParams)
+                if (redirectUrl) {
+                    const idToken = await user.getIdToken()
+                    const finalUrl = await buildAuthRedirectUrl(redirectUrl, idToken)
+                    window.location.href = finalUrl
+                } else {
+                    router.push("/")
+                }
             }
         })
         return () => unsubscribe()
-    }, [router, showVerifyDialog])
+    }, [router, searchParams, showVerifyDialog])
 
     async function onSubmit(event: React.SyntheticEvent) {
         event.preventDefault()
@@ -94,7 +97,7 @@ export default function RegisterPage() {
         try {
             const provider = new GoogleAuthProvider()
             await signInWithPopup(auth, provider)
-            router.push("/")
+            // Auth state listener will handle redirect
         } catch (e: any) {
             console.error(e)
             setError(e.message || "Failed to sign up with Google.")
@@ -102,6 +105,9 @@ export default function RegisterPage() {
             setIsLoading(false)
         }
     }
+
+    const redirectUrl = getValidatedRedirectUrl(searchParams)
+    const loginUrl = redirectUrl ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : "/login"
 
     return (
         <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
@@ -256,7 +262,7 @@ export default function RegisterPage() {
                             <p>
                                 Already have an account?{" "}
                                 <Link
-                                    href="/login"
+                                    href={loginUrl}
                                     className="underline underline-offset-4 hover:text-primary"
                                 >
                                     Login

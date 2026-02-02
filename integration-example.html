@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zest Auth Integration Example</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 48px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #1a202c;
+            margin-bottom: 8px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #718096;
+            margin-bottom: 32px;
+            font-size: 16px;
+        }
+        
+        .info-box {
+            background: #edf2f7;
+            border-left: 4px solid #667eea;
+            padding: 16px;
+            margin-bottom: 24px;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        
+        .user-info {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        
+        .user-info.active {
+            display: block;
+        }
+        
+        .user-info h2 {
+            color: #2d3748;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+        
+        .user-info p {
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+        
+        .user-info strong {
+            color: #1a202c;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .btn-danger {
+            background: #fc8181;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #f56565;
+        }
+        
+        code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Zest Auth Integration</h1>
+        <p class="subtitle">Example integration for your application</p>
+        
+        <div class="info-box">
+            <p>
+                Click the button below to authenticate with <strong>Zest Auth</strong>. 
+                After successful login, you'll be redirected back here with your authentication token.
+            </p>
+        </div>
+        
+        <div id="userInfo" class="user-info">
+            <h2>✅ Authentication Successful!</h2>
+            <p><strong>User ID:</strong> <span id="userId"></span></p>
+            <p><strong>Email:</strong> <span id="userEmail"></span></p>
+            <p><strong>Name:</strong> <span id="userName"></span></p>
+            <p><strong>Email Verified:</strong> <span id="emailVerified"></span></p>
+            <p style="margin-top: 16px; padding: 12px; background: white; border-radius: 4px; word-break: break-all;">
+                <strong>ID Token:</strong><br>
+                <code style="font-size: 12px; display: block; margin-top: 8px;" id="idToken"></code>
+            </p>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            <p>⏳ Checking authentication status...</p>
+        </div>
+        
+        <div class="button-group" id="authButtons">
+            <button class="btn-primary" onclick="login()">Sign In with Zest Auth</button>
+            <button class="btn-secondary" onclick="register()">Create Account</button>
+        </div>
+        
+        <div class="button-group" id="loggedInButtons" style="display: none;">
+            <button class="btn-danger" onclick="logout()">Sign Out</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithCustomToken, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Your Firebase configuration (use the same as Zest Auth)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Configuration
+        const AUTH_URL = 'http://localhost:3000'; // Change to your Zest Auth URL
+        const CALLBACK_URL = window.location.origin + window.location.pathname;
+
+        // Check if we have a token in the URL
+        window.addEventListener('load', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            
+            if (token) {
+                document.getElementById('loading').style.display = 'block';
+                try {
+                    // In a real app, you would verify this token on your backend
+                    // and create a session. Here we'll decode it to show user info
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    
+                    displayUserInfo({
+                        uid: payload.user_id,
+                        email: payload.email,
+                        name: payload.name || 'Not set',
+                        emailVerified: payload.email_verified,
+                        token: token
+                    });
+                    
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (error) {
+                    console.error('Error processing token:', error);
+                    alert('Authentication failed. Please try again.');
+                } finally {
+                    document.getElementById('loading').style.display = 'none';
+                }
+            }
+        });
+
+        function displayUserInfo(user) {
+            document.getElementById('userId').textContent = user.uid;
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userName').textContent = user.name;
+            document.getElementById('emailVerified').textContent = user.emailVerified ? '✅ Yes' : '❌ No';
+            document.getElementById('idToken').textContent = user.token;
+            
+            document.getElementById('userInfo').classList.add('active');
+            document.getElementById('authButtons').style.display = 'none';
+            document.getElementById('loggedInButtons').style.display = 'flex';
+            
+            // Store in session
+            sessionStorage.setItem('user', JSON.stringify(user));
+        }
+
+        function login() {
+            const redirectUrl = encodeURIComponent(CALLBACK_URL);
+            window.location.href = `${AUTH_URL}/login?redirect=${redirectUrl}`;
+        }
+
+        function register() {
+            const redirectUrl = encodeURIComponent(CALLBACK_URL);
+            window.location.href = `${AUTH_URL}/register?redirect=${redirectUrl}`;
+        }
+
+        function logout() {
+            sessionStorage.removeItem('user');
+            document.getElementById('userInfo').classList.remove('active');
+            document.getElementById('authButtons').style.display = 'flex';
+            document.getElementById('loggedInButtons').style.display = 'none';
+        }
+
+        // Make functions available globally
+        window.login = login;
+        window.register = register;
+        window.logout = logout;
+
+        // Check if user is already logged in
+        const storedUser = sessionStorage.getItem('user');
+        if (storedUser) {
+            displayUserInfo(JSON.parse(storedUser));
+        }
+    </script>
+</body>
+</html>

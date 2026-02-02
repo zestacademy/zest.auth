@@ -1,0 +1,135 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  passwordHash  String
+  name          String?
+  picture       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  authCodes     AuthorizationCode[]
+  accessTokens  AccessToken[]
+  refreshTokens RefreshToken[]
+  consents      UserConsent[]
+
+  @@index([email])
+}
+
+// OAuth Client (registered applications)
+model OAuthClient {
+  id                String   @id @default(uuid())
+  clientId          String   @unique
+  clientSecret      String   // Hashed
+  name              String
+  description       String?
+  logo              String?
+  redirectUris      String[] // Array of allowed redirect URIs
+  allowedScopes     String[] // Array of allowed scopes
+  trusted           Boolean  @default(false) // Trusted clients skip consent
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  authCodes     AuthorizationCode[]
+  accessTokens  AccessToken[]
+  refreshTokens RefreshToken[]
+  consents      UserConsent[]
+
+  @@index([clientId])
+}
+
+// Authorization Code (OAuth 2.0 Authorization Code Flow)
+model AuthorizationCode {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  userId       String
+  clientId     String
+  redirectUri  String
+  scope        String
+  codeChallenge String?  // For PKCE
+  codeChallengeMethod String? // For PKCE
+  expiresAt    DateTime
+  used         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([userId])
+  @@index([clientId])
+}
+
+// Access Token (JWT)
+model AccessToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  clientId  String
+  scope     String
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([clientId])
+}
+
+// Refresh Token
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  clientId  String
+  scope     String
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([clientId])
+}
+
+// User Consent (remembers what user approved for each client)
+model UserConsent {
+  id        String   @id @default(uuid())
+  userId    String
+  clientId  String
+  scope     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([userId])
+  @@index([clientId])
+}

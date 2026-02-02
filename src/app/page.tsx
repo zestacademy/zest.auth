@@ -3,115 +3,120 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { auth } from "@/lib/firebase"
-import { User, signOut } from "firebase/auth"
+import { User } from "firebase/auth"
 import { Button } from "@/components/ui/button"
-import { Loader2, LogOut, LayoutDashboard, ShieldCheck, Zap } from "lucide-react"
+import { Loader2, ShieldCheck, Lock, Zap, ArrowRight } from "lucide-react"
+import { getValidatedRedirectUrl, buildAuthRedirectUrl } from "@/lib/redirect"
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [redirecting, setRedirecting] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((u) => {
+    const unsubscribe = auth.onAuthStateChanged(async (u) => {
       setUser(u)
       setLoading(false)
+
+      // If user is authenticated and there's a valid redirect URL, redirect back
+      if (u) {
+        const redirectUrl = getValidatedRedirectUrl(searchParams)
+        if (redirectUrl) {
+          setRedirecting(true)
+          try {
+            const idToken = await u.getIdToken()
+            const finalUrl = await buildAuthRedirectUrl(redirectUrl, idToken)
+            window.location.href = finalUrl
+          } catch (error) {
+            console.error("Error getting ID token", error)
+            setRedirecting(false)
+          }
+        }
+      }
     })
     return () => unsubscribe()
-  }, [])
+  }, [searchParams])
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth)
-      router.refresh()
-    } catch (error) {
-      console.error("Error signing out", error)
-    }
-  }
-
-  if (loading) {
+  if (loading || redirecting) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-white" />
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
+          {redirecting && (
+            <p className="text-zinc-400 text-sm">Redirecting you back...</p>
+          )}
+        </div>
       </div>
     )
   }
 
+  // If authenticated but no redirect URL, show authenticated state
   if (user) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white font-sans">
         <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur top-0 sticky z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-              <span className="text-primary">Zest</span>Academy
+              <ShieldCheck className="h-6 w-6 text-indigo-500" />
+              <span className="text-primary">Zest</span>Auth
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-zinc-400 hidden sm:inline-block">
                 {user.email}
               </span>
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-zinc-400 hover:text-white">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
             </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <div className="col-span-full mb-8">
-              <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-              <p className="text-zinc-400">Welcome back to your comprehensive overview.</p>
+        <main className="container mx-auto px-4 py-16 max-w-4xl">
+          <div className="text-center space-y-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/10 mb-4">
+              <ShieldCheck className="h-8 w-8 text-emerald-500" />
+            </div>
+            <h1 className="text-4xl font-bold">You're Authenticated!</h1>
+            <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
+              Your account is successfully signed in to Zest Auth. This centralized authentication
+              service keeps your credentials secure across all Zest Academy applications.
+            </p>
+
+            <div className="mt-8 p-6 rounded-xl border border-zinc-800 bg-zinc-900/50 text-left">
+              <h2 className="text-lg font-semibold mb-4">Account Information</h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Email:</span>
+                  <span className="font-mono">{user.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Display Name:</span>
+                  <span>{user.displayName || "Not set"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Email Verified:</span>
+                  <span className={user.emailVerified ? "text-emerald-500" : "text-amber-500"}>
+                    {user.emailVerified ? "Yes" : "No"}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-zinc-200">Total Courses</h3>
-                <LayoutDashboard className="h-5 w-5 text-indigo-500" />
-              </div>
-              <p className="text-3xl font-bold">12</p>
-              <p className="text-xs text-zinc-500 mt-2">+2 added this month</p>
-            </div>
-
-            <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-zinc-200">Certificates</h3>
-                <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              </div>
-              <p className="text-3xl font-bold">3</p>
-              <p className="text-xs text-zinc-500 mt-2">Latest earned: Java Advanced</p>
-            </div>
-
-            <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-zinc-200">Activity Score</h3>
-                <Zap className="h-5 w-5 text-amber-500" />
-              </div>
-              <p className="text-3xl font-bold">850</p>
-              <p className="text-xs text-zinc-500 mt-2">Top 10% of students</p>
-            </div>
-
-            {/* Content Area */}
-            <div className="col-span-full mt-6 p-8 rounded-xl border border-zinc-800 bg-zinc-900/30 flex flex-col items-center justify-center text-center space-y-4 min-h-[300px]">
-              <div className="h-16 w-16 rounded-full bg-zinc-800 flex items-center justify-center mb-2">
-                <LayoutDashboard className="h-8 w-8 text-zinc-600" />
-              </div>
-              <h2 className="text-xl font-semibold">Ready to continue learning?</h2>
-              <p className="text-zinc-400 max-w-md">
-                Jump back into your last course or explore new topics in the catalogue.
-              </p>
-              <Button className="mt-4">Resume Learning</Button>
-            </div>
+            <p className="text-sm text-zinc-500 mt-8">
+              Close this window to return to your application, or use the link provided by the service that directed you here.
+            </p>
           </div>
         </main>
       </div>
     )
   }
 
-  // Landing Page
+  // Landing Page for non-authenticated users
+  const redirectUrl = getValidatedRedirectUrl(searchParams)
+  const loginUrl = redirectUrl ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : "/login"
+  const registerUrl = redirectUrl ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : "/register"
+
   return (
     <div className="flex min-h-screen flex-col bg-black text-white selection:bg-indigo-500/30">
       {/* Navigation */}
@@ -119,13 +124,13 @@ export default function HomePage() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xl font-bold tracking-tighter">
             <div className="h-6 w-6 rounded-full bg-indigo-500 blur-[8px] absolute opacity-50"></div>
-            <span className="relative z-10">Zest<span className="text-indigo-400">Academy</span></span>
+            <span className="relative z-10">Zest<span className="text-indigo-400">Auth</span></span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/login" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">
+            <Link href={loginUrl} className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">
               Sign In
             </Link>
-            <Link href="/register">
+            <Link href={registerUrl}>
               <Button size="sm" className="bg-white text-black hover:bg-zinc-200 rounded-full px-5">
                 Get Started
               </Button>
@@ -152,30 +157,81 @@ export default function HomePage() {
           <div className="relative z-10 max-w-4xl mx-auto space-y-6">
             <div className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-400 backdrop-blur-xl mb-4">
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 mr-2 animate-pulse"></span>
-              New cohort starting soon
+              Secure Authentication Service
             </div>
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40">
-              Master the Future
+              One Account.<br />All of Zest.
             </h1>
             <p className="text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-              Join the elite community of developers building the next generation of web applications.
-              Interactive learning, real-time feedback, and expert guidance.
+              Centralized authentication for Zest Academy. Sign in once, access everything.
+              Your credentials stay secure while you explore our entire ecosystem.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
-              <Link href="/register">
+              <Link href={registerUrl}>
                 <Button size="lg" className="h-12 px-8 rounded-full text-base bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25">
-                  Start Your Journey
+                  Create Account
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/login">
+              <Link href={loginUrl}>
                 <Button size="lg" variant="outline" className="h-12 px-8 rounded-full text-base border-zinc-700 hover:bg-zinc-800 hover:text-white bg-transparent">
-                  Live Demo
+                  Sign In
                 </Button>
               </Link>
             </div>
           </div>
         </section>
+
+        {/* Features Section */}
+        <section className="py-20 px-4 relative">
+          <div className="container mx-auto max-w-6xl">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Zest Auth?</h2>
+              <p className="text-zinc-400 max-w-2xl mx-auto">
+                Enterprise-grade security meets seamless user experience
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/50 transition-all">
+                <div className="h-12 w-12 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4">
+                  <ShieldCheck className="h-6 w-6 text-indigo-500" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Secure & Reliable</h3>
+                <p className="text-zinc-400 text-sm">
+                  Built on Firebase Auth with industry-standard security protocols and encryption.
+                </p>
+              </div>
+
+              <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/50 transition-all">
+                <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+                  <Zap className="h-6 w-6 text-emerald-500" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Lightning Fast</h3>
+                <p className="text-zinc-400 text-sm">
+                  Instant authentication and seamless redirects. No waiting, just learning.
+                </p>
+              </div>
+
+              <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/50 transition-all">
+                <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
+                  <Lock className="h-6 w-6 text-amber-500" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Privacy First</h3>
+                <p className="text-zinc-400 text-sm">
+                  Your data stays yours. We only store what's necessary for authentication.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
+
+      <footer className="border-t border-zinc-800 py-8">
+        <div className="container mx-auto px-4 text-center text-sm text-zinc-500">
+          <p>© 2026 Zest Academy. Secure authentication for modern learners.</p>
+        </div>
+      </footer>
     </div>
   )
 }
