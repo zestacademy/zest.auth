@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, ShieldCheck, Lock, Zap, ArrowRight } from "lucide-react"
 import { getValidatedRedirectUrl, buildAuthRedirectUrl } from "@/lib/redirect"
 
-export default function HomePage() {
+function HomePageContent() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [redirecting, setRedirecting] = useState(false)
@@ -233,5 +233,17 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   )
 }

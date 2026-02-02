@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -22,7 +22,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 
-export default function RegisterPage() {
+function RegisterForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -313,5 +313,15 @@ export default function RegisterPage() {
                 </DialogContent>
             </Dialog>
         </div>
+    )
+}
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={<div className="container relative min-h-screen flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>}>
+            <RegisterForm />
+        </Suspense>
     )
 }

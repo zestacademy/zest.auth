@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -163,5 +163,15 @@ export default function ForgotPasswordPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function ForgotPasswordPage() {
+    return (
+        <Suspense fallback={<div className="container relative min-h-screen flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>}>
+            <ForgotPasswordForm />
+        </Suspense>
     )
 }
