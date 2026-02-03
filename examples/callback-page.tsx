@@ -1,22 +1,23 @@
 /**
  * OAuth Callback Page - Next.js App Router
  * 
- * Copy this to: app/auth/callback/page.tsx
+ * Copy this to: app/auth/callback/page.tsx in your client application
  * 
- * This page handles the OAuth callback from Zest Auth,
- * exchanges the authorization code for tokens, and redirects to the dashboard
+ * This page handles the OAuth callback from Zest Auth.
+ * It verifies the state, retrieves the PKCE code_verifier, and sends to backend API
+ * for token exchange.
  */
 
 'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { handleCallback } from '@/lib/oauth'
 
 export default function AuthCallback() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [error, setError] = useState<string | null>(null)
+    const [isProcessing, setIsProcessing] = useState(true)
 
     useEffect(() => {
         const processCallback = async () => {
@@ -28,6 +29,7 @@ export default function AuthCallback() {
             // Handle OAuth error
             if (errorParam) {
                 setError(errorDescription || errorParam)
+                setIsProcessing(false)
                 setTimeout(() => router.push(`/login?error=${errorParam}`), 3000)
                 return
             }
@@ -35,35 +37,56 @@ export default function AuthCallback() {
             // Validate parameters
             if (!code || !state) {
                 setError('Missing required parameters')
+                setIsProcessing(false)
                 setTimeout(() => router.push('/login?error=missing_params'), 3000)
                 return
             }
 
-            try {
-                // Exchange code for tokens and get user info
-                const { tokens, user } = await handleCallback(code, state)
+            // Verify state (CSRF protection)
+            const savedState = sessionStorage.getItem('oauth_state')
+            if (state !== savedState) {
+                setError('Invalid state parameter')
+                setIsProcessing(false)
+                setTimeout(() => router.push('/login?error=invalid_state'), 3000)
+                return
+            }
 
-                // Send tokens to your backend API to create a session
-                const response = await fetch('/api/auth/session', {
+            // Get code_verifier from sessionStorage
+            const codeVerifier = sessionStorage.getItem('pkce_code_verifier')
+            if (!codeVerifier) {
+                setError('Missing PKCE verifier')
+                setIsProcessing(false)
+                setTimeout(() => router.push('/login?error=missing_verifier'), 3000)
+                return
+            }
+
+            try {
+                // Send to backend API with code_verifier for token exchange
+                const response = await fetch('/api/auth/callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        access_token: tokens.access_token,
-                        refresh_token: tokens.refresh_token,
-                        id_token: tokens.id_token,
-                        user,
+                        code,
+                        state,
+                        code_verifier: codeVerifier,
                     }),
                 })
 
                 if (!response.ok) {
-                    throw new Error('Failed to create session')
+                    const errorData = await response.json()
+                    throw new Error(errorData.error || 'Authentication failed')
                 }
+
+                // Clean up sessionStorage
+                sessionStorage.removeItem('pkce_code_verifier')
+                sessionStorage.removeItem('oauth_state')
 
                 // Redirect to dashboard
                 router.push('/dashboard')
             } catch (err: any) {
                 console.error('Callback error:', err)
                 setError(err.message || 'Authentication failed')
+                setIsProcessing(false)
                 setTimeout(() => router.push('/login?error=auth_failed'), 3000)
             }
         }
