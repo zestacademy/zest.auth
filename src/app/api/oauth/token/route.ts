@@ -13,7 +13,8 @@ import {
     generateAccessToken,
     generateRefreshToken,
     verifyRefreshToken,
-    revokeRefreshToken
+    revokeRefreshToken,
+    generateIdToken
 } from '@/lib/oauth'
 
 export async function POST(request: Request) {
@@ -143,8 +144,11 @@ async function handleAuthorizationCodeGrant(
         })
 
         // Create ID token (OpenID Connect)
-        const idToken = accessToken // For simplicity, using same as access token
-        // In production, you'd create a separate ID token with different claims
+        const idToken = await generateIdToken(
+            authCode.userId,
+            client.id,
+            // authCode.nonce // If we stored nonce, we would pass it here
+        )
 
         return NextResponse.json({
             access_token: accessToken,

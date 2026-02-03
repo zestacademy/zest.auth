@@ -103,6 +103,44 @@ export async function generateAccessToken(
 }
 
 /**
+ * Generate OIDC ID Token
+ */
+export async function generateIdToken(
+    userId: string,
+    clientId: string,
+    nonce?: string
+): Promise<string> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, name: true, emailVerified: true, picture: true }
+    })
+
+    if (!user) throw new Error('User not found')
+
+    const now = Math.floor(Date.now() / 1000)
+    const exp = now + 3600 // 1 hour
+
+    const privateKey = await getPrivateKey()
+
+    const token = await new SignJWT({
+        sub: userId,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        email_verified: user.emailVerified,
+        nonce: nonce
+    })
+        .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+        .setIssuedAt(now)
+        .setExpirationTime(exp)
+        .setIssuer(JWT_ISSUER)
+        .setAudience(clientId)
+        .sign(privateKey)
+
+    return token
+}
+
+/**
  * Generate Refresh Token
  */
 export async function generateRefreshToken(
