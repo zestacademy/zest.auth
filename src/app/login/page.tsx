@@ -38,9 +38,24 @@ function LoginForm() {
             if (user) {
                 const redirectUrl = getValidatedRedirectUrl(searchParams)
                 if (redirectUrl) {
-                    const idToken = await user.getIdToken()
-                    const finalUrl = await buildAuthRedirectUrl(redirectUrl, idToken)
-                    window.location.href = finalUrl
+                    try {
+                        const url = new URL(redirectUrl)
+                        const currentOrigin = window.location.origin
+
+                        // If it's an internal redirect (same origin), redirect directly without adding token
+                        // This is important for OAuth flow (/authorize endpoint)
+                        if (url.origin === currentOrigin) {
+                            window.location.href = redirectUrl
+                        } else {
+                            // For external redirects, add the ID token
+                            const idToken = await user.getIdToken()
+                            const finalUrl = await buildAuthRedirectUrl(redirectUrl, idToken)
+                            window.location.href = finalUrl
+                        }
+                    } catch {
+                        // If URL parsing fails, default to home
+                        router.push("/")
+                    }
                 } else {
                     router.push("/")
                 }

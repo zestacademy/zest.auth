@@ -18,6 +18,19 @@ export function isValidRedirectUrl(url: string): boolean {
 
   try {
     const redirectUrl = new URL(url);
+
+    // Allow same-origin redirects (internal redirects within the auth server)
+    // This is needed for OAuth flow when redirecting to /authorize after login
+    if (typeof window !== 'undefined' && redirectUrl.origin === window.location.origin) {
+      return true;
+    }
+
+    // For server-side, check against process.env.NEXTAUTH_URL or JWT_ISSUER
+    const authOrigin = process.env.NEXTAUTH_URL || process.env.JWT_ISSUER;
+    if (authOrigin && redirectUrl.origin === new URL(authOrigin).origin) {
+      return true;
+    }
+
     const allowedUrls = getAllowedRedirectUrls();
 
     return allowedUrls.some((allowedUrl) => {
@@ -37,10 +50,10 @@ export function isValidRedirectUrl(url: string): boolean {
  * Returns null if no valid redirect URL is found
  */
 export function getValidatedRedirectUrl(searchParams: URLSearchParams): string | null {
-  const redirectUrl = searchParams.get("redirect") || searchParams.get("returnUrl");
-  
+  const redirectUrl = searchParams.get("redirect") || searchParams.get("returnUrl") || searchParams.get("returnTo");
+
   if (!redirectUrl) return null;
-  
+
   return isValidRedirectUrl(redirectUrl) ? redirectUrl : null;
 }
 
