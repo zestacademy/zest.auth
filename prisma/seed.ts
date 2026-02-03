@@ -67,6 +67,26 @@ async function main() {
     })
     console.log('✅ Created OAuth client:', zestfolioClient.name)
 
+    // Create Zest Compilers OAuth Client
+    const compilersClient = await prisma.oAuthClient.upsert({
+        where: { clientId: 'zest_compilers' },
+        update: {},
+        create: {
+            clientId: 'zest_compilers',
+            clientSecret: await hashPassword('zest_compilers_secret_key'),
+            name: 'Zest Compilers',
+            description: 'Online code compiler and editor',
+            logo: 'https://compilers.zestacademy.tech/logo.png',
+            redirectUris: [
+                'http://localhost:3003/auth/callback',
+                'https://compilers.zestacademy.tech/auth/callback'
+            ],
+            allowedScopes: ['openid', 'email', 'profile'],
+            trusted: true
+        }
+    })
+    console.log('✅ Created OAuth client:', compilersClient.name)
+
     // Create a test third-party client (non-trusted)
     const testClient = await prisma.oAuthClient.upsert({
         where: { clientId: 'test_client' },
@@ -77,7 +97,7 @@ async function main() {
             name: 'Test Application',
             description: 'For testing OAuth flow',
             redirectUris: [
-                'http://localhost:3003/callback',
+                'http://localhost:3004/callback',
                 'https://example.com/callback'
             ],
             allowedScopes: ['openid', 'email', 'profile'],
@@ -93,6 +113,7 @@ async function main() {
     console.log('\n🔑 OAuth Clients:')
     console.log(`   - ${zestAcademyClient.name} (client_id: ${zestAcademyClient.clientId})`)
     console.log(`   - ${zestfolioClient.name} (client_id: ${zestfolioClient.clientId})`)
+    console.log(`   - ${compilersClient.name} (client_id: ${compilersClient.clientId})`)
     console.log(`   - ${testClient.name} (client_id: ${testClient.clientId})`)
 }
 
