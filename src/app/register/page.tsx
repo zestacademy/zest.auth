@@ -57,53 +57,43 @@ function RegisterForm() {
         setError(null)
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-            if (name) {
-                await updateProfile(userCredential.user, {
-                    displayName: name
-                })
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, name })
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    setShowExistsDialog(true)
+                    return
+                }
+                throw new Error(data.error || 'Failed to create account')
             }
-            await sendEmailVerification(userCredential.user)
-            setShowVerifyDialog(true)
-            // Do NOT router.push("/") here. Wait for dialog.
+
+            // Successful registration
+            // Automatically log in (handled by the createSession in register route? No, register route currently just creates user)
+            // Wait, register route doesn't create session!
+            // I should probbaly log them in OR ask them to login.
+            // Let's check register route again.
+            // Correct, it returns user but no session cookie.
+            // So we should redirect to login or auto-login.
+            // For now, let's redirect to login.
+
+            router.push('/login?email=' + encodeURIComponent(email))
         } catch (e: any) {
             console.error(e)
-            if (e.code === 'auth/email-already-in-use') {
-                setShowExistsDialog(true)
-            } else {
-                setError(e.message || "Failed to create account. Please try again.")
-            }
+            setError(e.message || "Failed to create account. Please try again.")
         } finally {
             setIsLoading(false)
         }
     }
 
-    // ... handleGoogleLogin ... (omitted from replacement for brevity if not changing, but wait, replace_file_content replaces range)
-    // Actually, I need to be careful with replace_file_content range.
-    // The "useEffect" logic I wrote above might conflict with the existing one if I don't replace it carefully.
-    // The existing useEffect redirects simply if user exists.
-    // When createUserWithEmailAndPassword succeeds, auth state changes to "logged in".
-    // The useEffect will trigger and redirect to "/", potentially BEFORE the dialog is seen or immediately closing it?
-    // userCredential creates the user and signs them in.
-    // So the state change listener WILL fire.
-    // I should modify the useEffect to ignore the redirect if we just signed up (maybe check showVerifyDialog?)
-    // Yes, added !showVerifyDialog check in the replacement above.
-
-    // Let's carry on with the rest of the component structure.
-
     async function handleGoogleLogin() {
-        setIsLoading(true)
-        setError(null)
-        try {
-            const provider = new GoogleAuthProvider()
-            await signInWithPopup(auth, provider)
-            // Auth state listener will handle redirect
-        } catch (e: any) {
-            console.error(e)
-            setError(e.message || "Failed to sign up with Google.")
-        } finally {
-            setIsLoading(false)
-        }
+        // TODO: Implement Google OAuth upstream
+        setError("Google signup is not yet configured for this environment.")
     }
 
     const redirectUrl = getValidatedRedirectUrl(searchParams)

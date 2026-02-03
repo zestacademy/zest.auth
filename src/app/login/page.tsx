@@ -33,36 +33,8 @@ function LoginForm() {
     const [showNotFoundDialog, setShowNotFoundDialog] = useState(false)
     const [heroImage] = useState<string>("/auth-hero-desktop.png")
 
-    useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                const redirectUrl = getValidatedRedirectUrl(searchParams)
-                if (redirectUrl) {
-                    try {
-                        const url = new URL(redirectUrl)
-                        const currentOrigin = window.location.origin
-
-                        // If it's an internal redirect (same origin), redirect directly without adding token
-                        // This is important for OAuth flow (/authorize endpoint)
-                        if (url.origin === currentOrigin) {
-                            window.location.href = redirectUrl
-                        } else {
-                            // For external redirects, add the ID token
-                            const idToken = await user.getIdToken()
-                            const finalUrl = await buildAuthRedirectUrl(redirectUrl, idToken)
-                            window.location.href = finalUrl
-                        }
-                    } catch {
-                        // If URL parsing fails, default to home
-                        router.push("/")
-                    }
-                } else {
-                    router.push("/")
-                }
-            }
-        })
-        return () => unsubscribe()
-    }, [router, searchParams])
+    // Auth state listener removed to prevent conflict with OAuth flow
+    // Authentication is now handled via explicit API calls and session cookies
 
     async function onSubmit(event: React.SyntheticEvent) {
         event.preventDefault()
@@ -70,33 +42,62 @@ function LoginForm() {
         setError(null)
 
         try {
-            await signInWithEmailAndPassword(auth, email, password)
-            // Auth state listener will handle redirect
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to sign in')
+            }
+
+            // Successful login
+            const returnTo = searchParams.get('returnTo') || '/'
+            router.push(returnTo)
+            router.refresh()
         } catch (e: any) {
             console.error(e)
-            // Handle account not found or invalid credentials
-            // Note: If email enumeration protection is enabled (default), 'auth/user-not-found' is not returned.
-            // Instead 'auth/invalid-credential' is returned.
-            // We show the dialog for all these cases to ensure users who don't have an account are prompted to create one.
-            if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
-                setShowNotFoundDialog(true)
-            } else {
-                setError(e.message || "Failed to sign in. Please check your credentials.")
-            }
+            setError(e.message || "Failed to sign in. Please check your credentials.")
         } finally {
             setIsLoading(false)
         }
     }
 
     async function handleGoogleLogin() {
+        // Implement Google OAuth using Firebase Client SDK
+        // (Since Firebase is already configured in this project for legacy reasons, we can leverage it for social login)
         setIsLoading(true)
         setError(null)
+
         try {
             const provider = new GoogleAuthProvider()
-            await signInWithPopup(auth, provider)
-            // Auth state listener will handle redirect
+            const userCredential = await signInWithPopup(auth, provider)
+            const idToken = await userCredential.user.getIdToken()
+
+            // Exchange Firebase ID token for our custom session
+            const response = await fetch('/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken })
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                const errorMessage = data.details || data.error || 'Failed to authenticate with Google'
+                throw new Error(errorMessage)
+            }
+
+            // Successful login
+            const returnTo = searchParams.get('returnTo') || '/'
+            router.push(returnTo)
+            router.refresh()
+
         } catch (e: any) {
-            console.error(e)
+            console.error("Google sign-in error:", e)
             setError(e.message || "Failed to sign in with Google.")
         } finally {
             setIsLoading(false)

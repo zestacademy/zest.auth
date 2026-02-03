@@ -126,9 +126,12 @@ export async function GET(request: Request) {
 
         return redirect(callbackUrl.toString())
     } catch (error) {
+        if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+            throw error;
+        }
         console.error('Authorization error:', error)
         return NextResponse.json(
-            { error: 'server_error', error_description: 'Internal server error' },
+            { error: 'server_error', error_description: error instanceof Error ? error.message : String(error) },
             { status: 500 }
         )
     }

@@ -1,60 +1,13 @@
-"use client"
-
-import { useEffect, useState, Suspense } from "react"
+import { getCurrentUser } from "@/lib/session"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter, useSearchParams } from "next/navigation"
-import { auth } from "@/lib/firebase"
-import { User } from "firebase/auth"
 import { Button } from "@/components/ui/button"
-import { Loader2, ShieldCheck, Lock, Zap, ArrowRight } from "lucide-react"
-import { getValidatedRedirectUrl, buildAuthRedirectUrl } from "@/lib/redirect"
+import { ShieldCheck, Lock, Zap, ArrowRight } from "lucide-react"
 
-function HomePageContent() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [redirecting, setRedirecting] = useState(false)
-  const router = useRouter()
-  const searchParams = useSearchParams()
+export default async function HomePage() {
+  const user = await getCurrentUser()
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (u) => {
-      setUser(u)
-      setLoading(false)
-
-      // If user is authenticated and there's a valid redirect URL, redirect back
-      if (u) {
-        const redirectUrl = getValidatedRedirectUrl(searchParams)
-        if (redirectUrl) {
-          setRedirecting(true)
-          try {
-            const idToken = await u.getIdToken()
-            const finalUrl = await buildAuthRedirectUrl(redirectUrl, idToken)
-            window.location.href = finalUrl
-          } catch (error) {
-            console.error("Error getting ID token", error)
-            setRedirecting(false)
-          }
-        }
-      }
-    })
-    return () => unsubscribe()
-  }, [searchParams])
-
-  if (loading || redirecting) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
-          {redirecting && (
-            <p className="text-zinc-400 text-sm">Redirecting you back...</p>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // If authenticated but no redirect URL, show authenticated state
+  // Authenticated View
   if (user) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white font-sans">
@@ -68,6 +21,9 @@ function HomePageContent() {
               <span className="text-sm text-zinc-400 hidden sm:inline-block">
                 {user.email}
               </span>
+              <form action="/api/auth/logout" method="POST">
+                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white">Sign Out</Button>
+              </form>
             </div>
           </div>
         </header>
@@ -92,7 +48,7 @@ function HomePageContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Display Name:</span>
-                  <span>{user.displayName || "Not set"}</span>
+                  <span>{user.name || "Not set"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Email Verified:</span>
@@ -104,7 +60,7 @@ function HomePageContent() {
             </div>
 
             <p className="text-sm text-zinc-500 mt-8">
-              Close this window to return to your application, or use the link provided by the service that directed you here.
+              You can now access all Zest Academy applications securely.
             </p>
           </div>
         </main>
@@ -112,11 +68,7 @@ function HomePageContent() {
     )
   }
 
-  // Landing Page for non-authenticated users
-  const redirectUrl = getValidatedRedirectUrl(searchParams)
-  const loginUrl = redirectUrl ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : "/login"
-  const registerUrl = redirectUrl ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : "/register"
-
+  // Landing Page
   return (
     <div className="flex min-h-screen flex-col bg-black text-white selection:bg-indigo-500/30">
       {/* Navigation */}
@@ -127,10 +79,10 @@ function HomePageContent() {
             <span className="relative z-10">Zest<span className="text-indigo-400">Auth</span></span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href={loginUrl} className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">
+            <Link href="/login" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">
               Sign In
             </Link>
-            <Link href={registerUrl}>
+            <Link href="/register">
               <Button size="sm" className="bg-white text-black hover:bg-zinc-200 rounded-full px-5">
                 Get Started
               </Button>
@@ -167,13 +119,13 @@ function HomePageContent() {
               Your credentials stay secure while you explore our entire ecosystem.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
-              <Link href={registerUrl}>
+              <Link href="/register">
                 <Button size="lg" className="h-12 px-8 rounded-full text-base bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25">
                   Create Account
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href={loginUrl}>
+              <Link href="/login">
                 <Button size="lg" variant="outline" className="h-12 px-8 rounded-full text-base border-zinc-700 hover:bg-zinc-800 hover:text-white bg-transparent">
                   Sign In
                 </Button>
@@ -199,7 +151,7 @@ function HomePageContent() {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Secure & Reliable</h3>
                 <p className="text-zinc-400 text-sm">
-                  Built on Firebase Auth with industry-standard security protocols and encryption.
+                  Built on modern OAuth 2.0 and OIDC standards with industry-leading security.
                 </p>
               </div>
 
@@ -233,17 +185,5 @@ function HomePageContent() {
         </div>
       </footer>
     </div>
-  )
-}
-
-export default function HomePage() {
-  return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-white" />
-      </div>
-    }>
-      <HomePageContent />
-    </Suspense>
   )
 }

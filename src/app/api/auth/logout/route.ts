@@ -19,10 +19,10 @@ export async function POST(request: Request) {
         // Clear session cookie
         await clearSession()
 
-        return NextResponse.json({
-            success: true,
-            message: 'Logged out successfully'
-        })
+        const { searchParams } = new URL(request.url)
+        const returnTo = searchParams.get('returnTo') || '/'
+
+        return NextResponse.redirect(new URL(returnTo, request.url))
     } catch (error) {
         console.error('Logout error:', error)
         return NextResponse.json(

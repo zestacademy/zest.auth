@@ -69,6 +69,10 @@ export async function generateAccessToken(
     const now = Math.floor(Date.now() / 1000)
     const exp = now + ACCESS_TOKEN_TTL
 
+    const privateKey = await getPrivateKey()
+
+    // ...
+
     const token = await new SignJWT({
         sub: userId,
         email: user.email,
@@ -82,7 +86,7 @@ export async function generateAccessToken(
         .setIssuer(JWT_ISSUER)
         .setAudience(clientId)
         .setJti(jti)
-        .sign(new TextEncoder().encode(JWT_PRIVATE_KEY))
+        .sign(privateKey)
 
     // Store token in database
     await prisma.accessToken.create({
@@ -191,7 +195,28 @@ export async function verifyAuthorizationCode(
         if (!codeVerifier) {
             throw new Error('Code verifier required for PKCE')
         }
-        // TODO: Implement PKCE challenge verification
+
+        if (authCode.codeChallengeMethod === 'S256') {
+            const encoder = new TextEncoder()
+            const data = encoder.encode(codeVerifier)
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+            const hashArray = Array.from(new Uint8Array(hashBuffer))
+
+            // Base64URL encode
+            const calculatedChallenge = btoa(String.fromCharCode.apply(null, hashArray))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '')
+
+            if (calculatedChallenge !== authCode.codeChallenge) {
+                throw new Error('Invalid code verifier')
+            }
+        } else {
+            // plain
+            if (codeVerifier !== authCode.codeChallenge) {
+                throw new Error('Invalid code verifier')
+            }
+        }
     }
 
     // Mark code as used
@@ -208,9 +233,10 @@ export async function verifyAuthorizationCode(
  */
 export async function verifyAccessToken(token: string) {
     try {
+        const publicKey = await getPublicKey()
         const { payload } = await jwtVerify(
             token,
-            new TextEncoder().encode(JWT_PUBLIC_KEY),
+            publicKey,
             {
                 issuer: JWT_ISSUER,
                 algorithms: ['RS256']
