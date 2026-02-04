@@ -5,7 +5,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, Loader2, Fingerprint } from "lucide-react"
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile, sendEmailVerification } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { getValidatedRedirectUrl, buildAuthRedirectUrl } from "@/lib/redirect"
 
@@ -74,14 +73,6 @@ function RegisterForm() {
             }
 
             // Successful registration
-            // Automatically log in (handled by the createSession in register route? No, register route currently just creates user)
-            // Wait, register route doesn't create session!
-            // I should probbaly log them in OR ask them to login.
-            // Let's check register route again.
-            // Correct, it returns user but no session cookie.
-            // So we should redirect to login or auto-login.
-            // For now, let's redirect to login.
-
             router.push('/login?email=' + encodeURIComponent(email))
         } catch (e: any) {
             console.error(e)
@@ -253,7 +244,7 @@ function RegisterForm() {
                                 Already have an account?{" "}
                                 <Link
                                     href={loginUrl}
-                                    className="underline underline-offset-4 hover:text-primary"
+                                    className="underline underline-offset-4 text-blue-500 hover:text-blue-600 font-medium"
                                 >
                                     Login
                                 </Link>
@@ -306,7 +297,7 @@ function RegisterForm() {
     )
 }
 
-export default function RegisterPage() {
+export default function RegisterView() {
     return (
         <Suspense fallback={<div className="container relative min-h-screen flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />

@@ -106,7 +106,7 @@ function LoginForm() {
 
     const redirectUrl = getValidatedRedirectUrl(searchParams)
     const forgotPasswordUrl = redirectUrl ? `/forgot-password?redirect=${encodeURIComponent(redirectUrl)}` : "/forgot-password"
-    const registerUrl = redirectUrl ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : "/register"
+    const registerUrl = redirectUrl ? `/?redirect=${encodeURIComponent(redirectUrl)}` : "/"
 
     return (
         <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
@@ -252,7 +252,7 @@ function LoginForm() {
                                 Don&apos;t have an account?{" "}
                                 <Link
                                     href={registerUrl}
-                                    className="underline underline-offset-4 hover:text-primary"
+                                    className="underline underline-offset-4 text-blue-500 hover:text-blue-600 font-medium"
                                 >
                                     Sign up
                                 </Link>
@@ -275,7 +275,7 @@ function LoginForm() {
                         <Button variant="outline" onClick={() => setShowNotFoundDialog(false)}>
                             Cancel
                         </Button>
-                        <Link href="/register" passHref>
+                        <Link href="/" passHref>
                             <Button onClick={() => setShowNotFoundDialog(false)}>
                                 Create Account
                             </Button>
